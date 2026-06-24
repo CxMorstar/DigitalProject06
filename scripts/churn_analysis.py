@@ -250,7 +250,7 @@ def train_and_evaluate(X: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
         X_test_used = X_test.values
 
         if scale:
-            # 仅对需要尺度敏感的模型做标准化（如逻辑回归）。
+            # 对需要尺度敏感的模型做标准化（如逻辑回归）。
             scaler = StandardScaler()
             X_train_used = scaler.fit_transform(X_train_used)
             X_test_used = scaler.transform(X_test_used)
@@ -325,7 +325,7 @@ def save_classification_outputs(results: dict[str, Any], X_columns: list[str]) -
             f.write(report)
             f.write("\n\n")
 
-    # 输出 ROC/PR 图，满足课程报告中的模型对比展示需求。
+    # 输出ROC/PR图，满足模型对比展示需求。
     plt.figure(figsize=(8, 6))
     for model_name, (fpr, tpr, auc_val) in roc_data.items():
         plt.plot(fpr, tpr, label=f"{model_name} (AUC={auc_val:.4f})")
@@ -418,7 +418,7 @@ def run_clustering(df: pd.DataFrame) -> None:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_seg)
 
-    # 通过轮廓系数在 2~8 类间选择较优 K 值。
+    # 通过轮廓系数在 2~8 类间选择较优K值。
     silhouette_records: list[dict[str, Any]] = []
     best_k = 2
     best_score = -1.0
@@ -451,7 +451,7 @@ def run_clustering(df: pd.DataFrame) -> None:
     summary.to_csv(OUTPUT_DIR / "kmeans_cluster_summary.csv", index=False)
     seg_df.to_csv(OUTPUT_DIR / "customer_segments.csv", index=False)
 
-    # PCA 降维后绘制 2D 散点图，便于报告展示分群差异。
+    # PCA 降维后绘制 2D 散点图
     pca = PCA(n_components=2, random_state=RANDOM_STATE)
     coords = pca.fit_transform(X_scaled)
     viz = pd.DataFrame(
