@@ -1,0 +1,44 @@
+{
+  "raw_shape": [
+    7043,
+    21
+  ],
+  "clean_shape": [
+    7043,
+    27
+  ],
+  "target_distribution": {
+    "0": 5174,
+    "1": 1869
+  },
+  "missing_after_cleaning": 0,
+  "columns": [
+    "customerID",
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+    "Churn",
+    "service_count",
+    "rfm_recency_proxy",
+    "rfm_frequency_proxy",
+    "rfm_monetary",
+    "avg_monthly_spend",
+    "contract_woe"
+  ]
+}
