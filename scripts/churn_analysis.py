@@ -48,6 +48,7 @@ try:
 
     HAS_SMOTE = True
 except Exception:
+    # 允许在离线环境运行：无 imblearn 时走随机过采样兜底。
     HAS_SMOTE = False
 
 
@@ -65,7 +66,7 @@ def load_data(path: Path) -> pd.DataFrame:
 def clean_and_engineer(df: pd.DataFrame) -> pd.DataFrame:
     data = df.copy()
 
-    # Target
+    # 目标变量二值化：Yes/No -> 1/0
     data["Churn"] = data["Churn"].map({"Yes": 1, "No": 0})
 
     # TotalCharges often contains spaces that should be treated as missing.
@@ -77,7 +78,7 @@ def clean_and_engineer(df: pd.DataFrame) -> pd.DataFrame:
 
     data["gender"] = data["gender"].map({"Female": 0, "Male": 1})
 
-    # Handle missing values.
+    # 缺失值处理：数值列用中位数，类别列用众数。
     num_cols = data.select_dtypes(include=[np.number]).columns.tolist()
     for col in num_cols:
         if data[col].isna().any():
@@ -88,7 +89,7 @@ def clean_and_engineer(df: pd.DataFrame) -> pd.DataFrame:
         if data[col].isna().any():
             data[col] = data[col].fillna(data[col].mode(dropna=True).iloc[0])
 
-    # IQR clipping for key numeric fields.
+    # 对关键数值列做 IQR 截尾，降低异常点对模型训练的干扰。
     for col in ["tenure", "MonthlyCharges", "TotalCharges"]:
         q1 = data[col].quantile(0.25)
         q3 = data[col].quantile(0.75)
@@ -97,7 +98,7 @@ def clean_and_engineer(df: pd.DataFrame) -> pd.DataFrame:
         high = q3 + 1.5 * iqr
         data[col] = data[col].clip(lower=low, upper=high)
 
-    # RFM-like proxy features (common for churn interpretation).
+    # 构造 RFM 代理特征，增强业务可解释性（并非严格交易型 RFM）。
     service_cols = [
         "PhoneService",
         "MultipleLines",
@@ -121,13 +122,14 @@ def clean_and_engineer(df: pd.DataFrame) -> pd.DataFrame:
     data["avg_monthly_spend"] = data["TotalCharges"] / np.maximum(data["tenure"], 1)
     data["avg_monthly_spend"] = data["avg_monthly_spend"].replace([np.inf, -np.inf], 0)
 
-    # Basic WOE-like mapping for contract type to strengthen interpretability.
+    # 使用合约类型的 WOE 编码，增强线性模型可解释性。
     data["contract_woe"] = map_woe(data["Contract"], data["Churn"])
 
     return data
 
 
 def map_woe(feature: pd.Series, target: pd.Series, eps: float = 1e-6) -> pd.Series:
+    # WOE = ln(正类占比/负类占比)，eps 用于防止分母为 0。
     frame = pd.DataFrame({"feature": feature.astype(str), "target": target})
     grp = frame.groupby("feature")["target"]
     pos = grp.sum()
@@ -141,6 +143,7 @@ def map_woe(feature: pd.Series, target: pd.Series, eps: float = 1e-6) -> pd.Seri
 
 
 def prepare_supervised_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    # 去掉目标列和纯标识列（customerID），其余特征统一 One-Hot。
     y = df["Churn"].astype(int)
     drop_cols = ["Churn", "customerID"]
     X = df.drop(columns=drop_cols)
@@ -156,7 +159,7 @@ def oversample_training_data(
         X_bal, y_bal = smote.fit_resample(X_train, y_train)
         return X_bal, y_bal, "smote"
 
-    # Fallback: random oversampling to keep the pipeline runnable offline.
+    # 兜底方案：随机过采样（当无法安装 SMOTE 依赖时仍可完成实验）。
     y_arr = np.asarray(y_train)
     classes, counts = np.unique(y_arr, return_counts=True)
     maj_class = classes[np.argmax(counts)]
@@ -224,6 +227,7 @@ def get_models() -> dict[str, dict[str, Any]]:
 
 
 def train_and_evaluate(X: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
+    # 分层切分，保证训练集/测试集标签比例一致。
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
     )
@@ -246,6 +250,7 @@ def train_and_evaluate(X: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
         X_test_used = X_test.values
 
         if scale:
+            # 仅对需要尺度敏感的模型做标准化（如逻辑回归）。
             scaler = StandardScaler()
             X_train_used = scaler.fit_transform(X_train_used)
             X_test_used = scaler.transform(X_test_used)
@@ -320,6 +325,7 @@ def save_classification_outputs(results: dict[str, Any], X_columns: list[str]) -
             f.write(report)
             f.write("\n\n")
 
+    # 输出 ROC/PR 图，满足课程报告中的模型对比展示需求。
     plt.figure(figsize=(8, 6))
     for model_name, (fpr, tpr, auc_val) in roc_data.items():
         plt.plot(fpr, tpr, label=f"{model_name} (AUC={auc_val:.4f})")
@@ -352,7 +358,7 @@ def save_classification_outputs(results: dict[str, Any], X_columns: list[str]) -
     }
     joblib.dump(model_bundle, MODELS_DIR / "best_model.joblib")
 
-    # Feature importance export when available.
+    # 若最佳模型支持特征重要性，则额外导出特征贡献表。
     if hasattr(best_artifact["model"], "feature_importances_"):
         imp = pd.DataFrame(
             {
@@ -375,7 +381,7 @@ def save_shap_plot(model_name: str, artifact: dict[str, Any], X_columns: list[st
     X_test = artifact["X_test_used"]
     X_sample = X_test[: min(500, len(X_test))]
 
-    # Tree explainers are stable for tree-based models.
+    # SHAP 仅对树模型执行，避免在线性模型上引入不必要复杂度。
     if model_name not in {"random_forest", "xgboost", "lightgbm"}:
         return
 
@@ -412,6 +418,7 @@ def run_clustering(df: pd.DataFrame) -> None:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_seg)
 
+    # 通过轮廓系数在 2~8 类间选择较优 K 值。
     silhouette_records: list[dict[str, Any]] = []
     best_k = 2
     best_score = -1.0
@@ -427,6 +434,7 @@ def run_clustering(df: pd.DataFrame) -> None:
     kmeans = KMeans(n_clusters=best_k, random_state=RANDOM_STATE, n_init=20)
     seg_df["kmeans_cluster"] = kmeans.fit_predict(X_scaled)
 
+    # DBSCAN 作为密度聚类对照，用于观察离群与稀疏簇结构。
     dbscan = DBSCAN(eps=1.2, min_samples=25)
     seg_df["dbscan_cluster"] = dbscan.fit_predict(X_scaled)
 
@@ -443,7 +451,7 @@ def run_clustering(df: pd.DataFrame) -> None:
     summary.to_csv(OUTPUT_DIR / "kmeans_cluster_summary.csv", index=False)
     seg_df.to_csv(OUTPUT_DIR / "customer_segments.csv", index=False)
 
-    # 2D visualization with PCA.
+    # PCA 降维后绘制 2D 散点图，便于报告展示分群差异。
     pca = PCA(n_components=2, random_state=RANDOM_STATE)
     coords = pca.fit_transform(X_scaled)
     viz = pd.DataFrame(
