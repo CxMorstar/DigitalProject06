@@ -67,17 +67,23 @@ Invoke-WebRequest `
   -OutFile "data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv"
 ```
 
-### 4.2 一键运行完整流程
+### 4.2 一键运行完整流程（脚本入口）
 ```bash
 python scripts/churn_analysis.py
 ```
 
-### 4.3 Notebook 运行（课程提交推荐）
+### 4.3 规范入口脚本（按附件4结构）
+```bash
+python train.py
+python evaluate.py
+```
+
+### 4.4 Notebook 运行（课程提交推荐）
 ```bash
 jupyter notebook notebooks/churn_analysis.ipynb
 ```
 
-### 4.4 结果输出位置
+### 4.5 结果输出位置
 - 模型文件：`models/best_model.joblib`
 - 指标文件：`output/model_metrics.csv`
 - 报告文件：`output/classification_reports.txt`
@@ -85,17 +91,39 @@ jupyter notebook notebooks/churn_analysis.ipynb
 - 分群结果：`output/customer_segments.csv`、`output/kmeans_cluster_summary.csv`
 - 数据画像：`output/data_profile.json`
 
-## 项目目录（核心）
+## 项目目录（规范化后）
 ```text
 DigitalProject06/
+├── configs/
+│   └── default.yaml
 ├── data/
-│   └── raw/
-│       └── WA_Fn-UseC_-Telco-Customer-Churn.csv
+│   ├── raw/
+│   │   └── WA_Fn-UseC_-Telco-Customer-Churn.csv
+│   ├── processed/
+│   └── datasets/
+│       └── telco_dataset.py
+├── training/
+│   ├── trainers/
+│   │   └── churn_trainer.py
+│   ├── losses/
+│   └── metrics/
+├── utils/
+│   ├── data_utils.py
+│   ├── model_utils.py
+│   └── visualization.py
+├── experiments/
+│   └── exp_20240627/
+│       └── README.md
+├── tests/
+│   └── test_structure.py
+├── train.py
+├── evaluate.py
 ├── notebooks/
 │   └── churn_analysis.ipynb
 ├── scripts/
 │   └── churn_analysis.py
 ├── models/
+│   ├── base_model.py
 │   └── best_model.joblib
 ├── output/
 │   ├── model_metrics.csv
@@ -103,5 +131,6 @@ DigitalProject06/
 │   ├── pr_curves.png
 │   └── customer_segments.csv
 ├── requirements.txt
+├── setup.py
 └── README.md
 ```

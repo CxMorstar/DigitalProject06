@@ -1,0 +1,15 @@
+project:
+  name: DigitalProject06
+  task: telco_churn_prediction_and_segmentation
+
+data:
+  raw_path: data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+  processed_dir: data/processed
+
+training:
+  random_state: 42
+  test_size: 0.2
+
+output:
+  output_dir: output
+  model_dir: models
